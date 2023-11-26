@@ -404,7 +404,7 @@ class OptionsAction(argparse.Action):
 
         if self.dest == 'project':
             if values is None:
-                print(' '.join(project for project in sorted(devices)))
+                print(' '.join(sorted(devices)))
                 parser.exit()
 
             if values not in devices.keys():
@@ -414,7 +414,7 @@ class OptionsAction(argparse.Action):
             project = getattr(namespace, 'project')
 
             if values is None:
-                print(' '.join(soc for soc in sorted(devices[project])))
+                print(' '.join(sorted(devices[project])))
                 parser.exit()
 
             if values not in devices[project].keys():
@@ -425,7 +425,7 @@ class OptionsAction(argparse.Action):
             soc = getattr(namespace, 'soc')
 
             if values is None:
-                print(' '.join(board for board in sorted(devices[project][soc])))
+                print(' '.join(sorted(devices[project][soc])))
                 parser.exit()
 
             if values not in devices[project][soc].keys():
@@ -437,7 +437,7 @@ class OptionsAction(argparse.Action):
             board = getattr(namespace, 'board')
 
             if values is None:
-                print(' '.join(value for value in sorted(devices[project][soc][board].keys())))
+                print(' '.join(sorted(devices[project][soc][board].keys())))
                 parser.exit()
 
             if values not in devices[project][soc][board].keys():

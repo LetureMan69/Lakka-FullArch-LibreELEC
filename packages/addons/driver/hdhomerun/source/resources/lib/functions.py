@@ -15,9 +15,9 @@ __sundtek_userspace__ = '/storage/.kodi/userdata/addon_data/driver.dvb.sundtek-m
 # backup setting.xml file only if backup doesn't exist
 def settings_backup(settings_xml):
   try:
-    with open(settings_xml + '_orig') as f: pass
+    with open(f'{settings_xml}_orig') as f: pass
   except IOError as e:
-    shutil.copyfile(settings_xml, settings_xml + '_orig')
+    shutil.copyfile(settings_xml, f'{settings_xml}_orig')
 
 ######################################################################################################
 # restore setting.xml file from backup
@@ -179,14 +179,14 @@ def add_hdhomerun(xmldoc, node_cat, tuners):
 ######################################################################################################
 # add new sundtek tuners
 def add_sundtek(xmldoc, node_cat, tuners):
-  for ix, tuner in enumerate(tuners):
+  for tuner in tuners:
     tuner_name   = tuner[0]
     tuner_serial = tuner[1]
     tuner_type   = tuner[2]
 
     node1 = xmldoc.createElement("setting")
-    node1.setAttribute("id", 'ATTACHED_TUNER_' + tuner_serial + '_DVBMODE')
-    node1.setAttribute("label", tuner_name + ", " + tuner_serial)
+    node1.setAttribute("id", f'ATTACHED_TUNER_{tuner_serial}_DVBMODE')
+    node1.setAttribute("label", f"{tuner_name}, {tuner_serial}")
     node1.setAttribute("type", 'labelenum')
 
     if (tuner_type == 's'):
@@ -199,7 +199,7 @@ def add_sundtek(xmldoc, node_cat, tuners):
     node_cat.appendChild(node1)
 
     node2 = xmldoc.createElement("setting")
-    node2.setAttribute("id", 'ATTACHED_TUNER_' + tuner_serial + '_IRPROT')
+    node2.setAttribute("id", f'ATTACHED_TUNER_{tuner_serial}_IRPROT')
     node2.setAttribute("label", '9020')
     node2.setAttribute("type", 'labelenum')
     node2.setAttribute("default", 'auto')
@@ -207,7 +207,7 @@ def add_sundtek(xmldoc, node_cat, tuners):
     node_cat.appendChild(node2)
 
     node3 = xmldoc.createElement("setting")
-    node3.setAttribute("id", 'ATTACHED_TUNER_' + tuner_serial + '_KEYMAP')
+    node3.setAttribute("id", f'ATTACHED_TUNER_{tuner_serial}_KEYMAP')
     node3.setAttribute("label", '9030')
     node3.setAttribute("type", 'file')
     node3.setAttribute("mask", '*.map')

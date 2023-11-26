@@ -53,7 +53,7 @@ def fix_appends(line, changed):
   else:
     match = RE_APPEND_WITHOUT_BRACES.match(line)
     if match:
-      replace = (match.groups()[1] == ('$%s' % match.groups()[0]))
+      replace = match.groups()[1] == f'${match.groups()[0]}'
 
   # If we want to replace this, but we're replacing the var
   # with only itself, then it's not a concat but something else,
@@ -62,7 +62,7 @@ def fix_appends(line, changed):
     replace = False
 
   if replace:
-    newline = line.replace('="%s' % match.groups()[1], '+="')
+    newline = line.replace(f'="{match.groups()[1]}', '+="')
     changes += 1
 
   changed['appends'] += changes
@@ -129,13 +129,11 @@ def fix_backticks(line, changed):
   newline = ''
   intick = False
   iscomment = False
-  c = 0
-
   # Don't fix backticks in comments as more likely to be markdown
   if line.startswith('#'):
     return line
 
-  while c < len(line):
+  for c in range(len(line)):
     char = line[c:c+1]
     charn = line[c+1:c+2]
 
@@ -155,8 +153,6 @@ def fix_backticks(line, changed):
       intick = not intick
     else:
       newline += char
-
-    c += 1
 
   changed['backticks'] += changes
   changed['isdirty'] = (changed['isdirty'] or changes != 0)
@@ -209,7 +205,7 @@ def process_args(args):
         if os.path.isfile(filename):
           files.append(filename)
       else:
-        print('ERROR: %s does not exist' % filename)
+        print(f'ERROR: {filename} does not exist')
         sys.exit(1)
   else:
     if args.write:
@@ -241,16 +237,9 @@ def process_file(filename, args):
 
   changed = {'isdirty': False, 'appends': 0, 'backticks': 0, 'braces': 0, 'semicolons': 0}
 
-  if filename:
-    file = open(filename, 'r')
-  else:
-    file = sys.stdin
-
-  oldline = file.readline()
-  while oldline:
+  file = open(filename, 'r') if filename else sys.stdin
+  while oldline := file.readline():
     oldlines.append(oldline)
-    oldline = file.readline()
-
   file.close()
 
   for oldline in oldlines:
@@ -277,7 +266,7 @@ def run_command(command):
   process = subprocess.Popen(command, shell=True, close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
   process.wait()
   for line in process.stdout.readlines():
-    result = '%s%s' % (result, line.decode('utf-8'))
+    result = f"{result}{line.decode('utf-8')}"
   return result
 
 #
@@ -300,7 +289,7 @@ def show_diff(filename, oldlines, newlines):
   output_file(oldfile, oldlines)
   output_file(newfile, newlines)
 
-  diff = run_command('diff -Naur "%s" "%s"' % (oldfile, newfile))
+  diff = run_command(f'diff -Naur "{oldfile}" "{newfile}"')
 
   os.remove(oldfile)
   os.remove(newfile)
@@ -308,8 +297,8 @@ def show_diff(filename, oldlines, newlines):
   diff = diff.split('\n')
   if len(diff) > 2:
     # fix filenames
-    diff[0] = diff[0].replace(oldfile, 'a/%s' % filename)
-    diff[1] = diff[1].replace(newfile, 'b/%s' % filename)
+    diff[0] = diff[0].replace(oldfile, f'a/{filename}')
+    diff[1] = diff[1].replace(newfile, f'b/{filename}')
     print('\n'.join(diff), file=sys.stderr)
 
 def output_file(filename, lines):
@@ -324,7 +313,7 @@ def show_summary(filename, changed):
   if not filename:
     print('Summary of changes', file=sys.stderr)
   else:
-    print('Summary of changes [%s]' % filename, file=sys.stderr)
+    print(f'Summary of changes [{filename}]', file=sys.stderr)
   print('==================', file=sys.stderr)
   print('Appends   : %4d' % changed['appends'], file=sys.stderr)
   print('Braces    : %4d' % changed['braces'], file=sys.stderr)

@@ -45,7 +45,7 @@ class Controller():
             if os.path.exists(dest_folder): shutil.rmtree(dest_folder)
 
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30043), xbmcgui.NOTIFICATION_INFO)
-            for idx, folder in enumerate(SCANTABLES):
+            for folder in SCANTABLES:
                 for z in zip.filelist:
                     if folder in z.filename: zip.extract(z.filename, temp)
 
@@ -55,7 +55,7 @@ class Controller():
             os.remove(archive)
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30039), xbmcgui.NOTIFICATION_INFO)
         except URLError as e:
-            xbmc.log('Could not download file: %s' % e.reason, xbmc.LOGERROR)
+            xbmc.log(f'Could not download file: {e.reason}', xbmc.LOGERROR)
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30040), xbmcgui.NOTIFICATION_ERROR)
         except zipfile.BadZipfile:
             xbmc.log('Could not extract files from zip, bad zipfile', xbmc.LOGERROR)
@@ -72,7 +72,7 @@ class Controller():
             if zip.testzip() is not None: raise zipfile.BadZipfile
             zip.close()
             command = 'unzip -o {0} -d {1} > /dev/null'.format(archive, dest_folder)
-            xbmc.log('Running: %s' % command, xbmc.LOGDEBUG)
+            xbmc.log(f'Running: {command}', xbmc.LOGDEBUG)
             os.system(command)
             os.remove(archive)
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30039), xbmcgui.NOTIFICATION_INFO)
@@ -82,7 +82,7 @@ class Controller():
                 subprocess.call(['systemctl', 'restart', self.id])
 
         except URLError as e:
-            xbmc.log('Could not download file: %s' % e.reason, xbmc.LOGERROR)
+            xbmc.log(f'Could not download file: {e.reason}', xbmc.LOGERROR)
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30040), xbmcgui.NOTIFICATION_ERROR)
         except zipfile.BadZipfile:
             xbmc.log('Could not extract files from zip, bad zipfile', xbmc.LOGERROR)
@@ -96,13 +96,13 @@ class Controller():
         response = self.session.get(self.url, headers=headers)
         parsed = urlparse.urlparse(response.url)
         salt = parse_qs(parsed.query)['salt'][0]
-        if self.hashedPassword == None:
+        if self.hashedPassword is None:
             passwordHash = self.hashMe(self.password)
         else:
             passwordHash = self.hashedPassword
-        combined = self.hashMe(salt + ':' + self.username + ':' + passwordHash)
-        response = self.session.get(self.url + 'login.html?hash='+combined)
-        if response.status_code != 200 and response.status_code != 302 :
+        combined = self.hashMe(f'{salt}:{self.username}:{passwordHash}')
+        response = self.session.get(f'{self.url}login.html?hash={combined}')
+        if response.status_code not in [200, 302]:
             print(response.text, response.status_code)
             sys.exit()
         for cookie in self.session.cookies:
@@ -112,15 +112,12 @@ class Controller():
         xbmc.log(method, xbmc.LOGDEBUG)
         retval = False
         getResult = None
-        url = self.url + 'service?method=' + method
+        url = f'{self.url}service?method={method}'
         try:
             request = self.session.get(url, headers={"Accept" : "application/json"})
             getResult = json.loads(request.text)
-            if request.status_code == 200 :
-                if 'stat' in getResult:
-                    retval = getResult['stat'] == 'ok'
-                else:
-                    retval = True
+            if request.status_code == 200:
+                retval = getResult['stat'] == 'ok' if 'stat' in getResult else True
             else:
                 xbmc.log(getResult, xbmc.LOGERROR)
 
@@ -145,7 +142,7 @@ class Controller():
         self.hashedPIN = child.find('PinMD5').text
         self.hashedPassword = child.find('Password').text.lower()
         self.ip = '127.0.0.1'
-        self.url = 'http://{}:{}/'.format(self.ip, self.port)
+        self.url = f'http://{self.ip}:{self.port}/'
         self.sessionLogin()
 
 

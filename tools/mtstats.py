@@ -20,7 +20,7 @@ class HistoryEvent:
         # squash spaces, then split by space
         items = ' '.join(event.replace("\n", "").split()).split(" ")
 
-        self.datetime = "%s %s" % (items[0], items[1][:-4])
+        self.datetime = f"{items[0]} {items[1][:-4]}"
         (self.slot, self.seq) = items[3][1:-1].split("/")
         self.status = items[4]
         self.task = items[5] if len(items) > 5 else ""
@@ -30,10 +30,10 @@ class HistoryEvent:
         self.secs = None
 
     def __repr__(self):
-        return "%s; %s; %s; %s; %s; %s; %s;" % (self.datetime, self.slot, self.seq, self.status, self.task, self.package, self.msg)
+        return f"{self.datetime}; {self.slot}; {self.seq}; {self.status}; {self.task}; {self.package}; {self.msg};"
 
     def get_time_secs(self):
-        if self.secs == None:
+        if self.secs is None:
             self.secs = (datetime.datetime.strptime(self.datetime, "%Y-%m-%d %H:%M:%S.%f") - EPOCH).total_seconds()
         return self.secs
 
@@ -50,17 +50,11 @@ class HistoryEvent:
         return default
 
 def calc_pct(a, b):
-  if b > 0.0:
-      return (a / b) * 100
-  else:
-      return 0.0
+    return (a / b) * 100 if b > 0.0 else 0.0
 
 def pct_brackets(pct):
     spct = "%04.1f" % pct
-    if float(spct) >= 100.0:
-        return "( %s%%)" % spct[:-2]
-    else:
-        return "(%s%%)" % spct
+    return "( %s%%)" % spct[:-2] if float(spct) >= 100.0 else "(%s%%)" % spct
 
 def secs_to_hms(seconds, blankzero=False):
     hours = "%02d" % int(seconds / 3600)
@@ -80,14 +74,12 @@ def get_concurrent_val(concurrent):
 
 #---------------------------
 
-events = []
-for event in sys.stdin: events.append(HistoryEvent(event))
-
-if len(events) > 0 and events[0].isConfig():
+events = [HistoryEvent(event) for event in sys.stdin]
+if events and events[0].isConfig():
     MAXSLOTS = events[0].getConfig("slots")
     del events[0]
 
-if len(events) == 0:
+if not events:
     sys.exit(1)
 
 started = events[0].get_time_secs()
@@ -114,11 +106,7 @@ for status in ALL_STATUSES:
     data["statuses"][status] = {"enabled": False, "count": 0, "start": 0.0, "total": 0.0}
 data["statuses"]["IDLE"]["start"] = started
 
-# For each slot allocate data storage
-slots = {}
-for slot in slotn:
-    slots[slot] = copy.deepcopy(data)
-
+slots = {slot: copy.deepcopy(data) for slot in slotn}
 # Process all events, accumulating counts and elapsed time for each status by slot
 for event in events:
     slot = slots[event.slot]
@@ -133,7 +121,7 @@ for event in events:
 
     # Determine max concurrency
     if event.status in BUSY_STATUSES:
-        if previous == None or previous not in BUSY_STATUSES:
+        if previous is None or previous not in BUSY_STATUSES:
             active += 1
             concurrent = concurrency.get(active, {"start": 0.0, "total": 0.0})
             concurrent["start"] = event.get_time_secs()
@@ -154,13 +142,14 @@ for event in events:
 # If any slots remain active then either the build has failed or the build is
 # ongoing in which case "close" the active slots with the current time.
 # For IDLE states, "close" the event with the elapsed time to the last known event.
-for slot in slots:
-    for status in slots[slot]["statuses"]:
+for slot, value in slots.items():
+    for status in value["statuses"]:
         if status == "IDLE":
-            if slots[slot]["statuses"]["FAILED"]["enabled"] == True:
-                slots[slot]["statuses"][status]["total"] += (last_active - slots[slot]["statuses"]["FAILED"]["start"])
-            else:
-                slots[slot]["statuses"][status]["total"] += (last_active - slots[slot]["statuses"][status]["start"])
+            slots[slot]["statuses"][status]["total"] += (
+                (last_active - slots[slot]["statuses"]["FAILED"]["start"])
+                if slots[slot]["statuses"]["FAILED"]["enabled"] == True
+                else (last_active - slots[slot]["statuses"][status]["start"])
+            )
         elif slots[slot]["statuses"][status]["enabled"] == True:
             if status != "FAILED":
                 incomplete = True
@@ -171,13 +160,13 @@ for slot in slots:
 # Summarise slot data by various criteria
 summary = {}
 cumulative_count = cumulative_total = 0
-for slot in slots:
+for slot, value_ in slots.items():
     acount = atotal = 0
     scount = stotal = 0
     ccount = ctotal = 0
 
     for status in BUSY_STATUSES:
-        if status in slots[slot]["statuses"]:
+        if status in value_["statuses"]:
             acount += slots[slot]["statuses"][status]["count"]
             atotal += slots[slot]["statuses"][status]["total"]
 
@@ -198,8 +187,8 @@ for slot in slots:
 
 # Accumulate stalled stats
 stalled_count = stalled_total = 0
-for slot in summary:
-    stalled_count += summary[slot]["stalled"]["count"]
+for slot, value__ in summary.items():
+    stalled_count += value__["stalled"]["count"]
     stalled_total += summary[slot]["stalled"]["total"]
 
 elapsed = (ended - started)
@@ -216,8 +205,8 @@ print("  Status   Usage         ( Pct )  Count  State")
 for status in sorted(ALL_STATUSES):
     total = 0
     count = 0
-    for slot in slots:
-        if status in slots[slot]["statuses"]:
+    for slot, value___ in slots.items():
+        if status in value___["statuses"]:
             count += slots[slot]["statuses"][status]["count"]
             total += slots[slot]["statuses"][status]["total"]
 
@@ -247,7 +236,7 @@ print("#Rank  Slot  Usage        ( Pct )        | # of Slots  Usage        ( Pct
 lines = []
 
 busy_total = 0
-for rank, slot in enumerate(sorted(summary, key=get_busy_total, reverse=True)):
+for slot in sorted(summary, key=get_busy_total, reverse=True):
     pct = calc_pct(summary[slot]["busy"]["total"], cumulative_total)
     state = "active" if slots[slot]["isactive"] == True else " "
     stime = secs_to_hms(summary[slot]["busy"]["total"], blankzero=True)

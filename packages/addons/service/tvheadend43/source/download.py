@@ -45,7 +45,7 @@ class DownLoader():
 
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30039), xbmcgui.NOTIFICATION_INFO)
         except URLError as e:
-            xbmc.log('Could not download file: %s' % e.reason, xbmc.LOGERROR)
+            xbmc.log(f'Could not download file: {e.reason}', xbmc.LOGERROR)
             self.dp.close()
             xbmcgui.Dialog().notification(ADDON_NAME, LS(30040), xbmcgui.NOTIFICATION_ERROR)
         except zipfile.BadZipfile:

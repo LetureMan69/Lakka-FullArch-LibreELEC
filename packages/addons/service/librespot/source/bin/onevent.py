@@ -19,10 +19,10 @@ def receive_event():
         sock.bind(ADDRESS)
         while True:
             data, addr = sock.recvfrom(BUFFER_SIZE)
-            event = json.loads(data.decode())
-            if not event:
+            if event := json.loads(data.decode()):
+                yield event
+            else:
                 break
-            yield event
 
 
 ARG_ALBUM = 'album'

@@ -42,7 +42,10 @@ class KodiFunctions(object):
       self.audiodevice = __addon__.getSetting('audiodevice')
     self.pulsedevice = 'PULSE:Default'
 
-    xbmc.log('%s: setting default audio device "%s" on start' % (__addonid__, self.audiodevice), xbmc.LOGINFO)
+    xbmc.log(
+        f'{__addonid__}: setting default audio device "{self.audiodevice}" on start',
+        xbmc.LOGINFO,
+    )
     self.select_default()
 
   def select_default(self):
@@ -59,10 +62,10 @@ class BluetoothAudioClient(object):
 
   def __init__(self):
 
-    xbmc.log('%s: starting add-on' % __addonid__, xbmc.LOGINFO)
+    xbmc.log(f'{__addonid__}: starting add-on', xbmc.LOGINFO)
 
     self.kodi = KodiFunctions()
-    self.path = __addonpath__ + 'bin/dbusservice.py'
+    self.path = f'{__addonpath__}bin/dbusservice.py'
 
     self.service = subprocess.Popen([self.path], stdout=subprocess.PIPE)
 
@@ -77,19 +80,19 @@ class BluetoothAudioClient(object):
       if line == b'':
         break
       if line == b'bluetooth\n':
-        xbmc.log('%s: switching to bluetooth audio device' % __addonid__, xbmc.LOGINFO)
+        xbmc.log(f'{__addonid__}: switching to bluetooth audio device', xbmc.LOGINFO)
         self.kodi.select_pulse()
         continue
       if line == b'default\n':
-        xbmc.log('%s: switching to default audio device' % __addonid__, xbmc.LOGINFO)
+        xbmc.log(f'{__addonid__}: switching to default audio device', xbmc.LOGINFO)
         self.kodi.select_default()
         continue
-      xbmc.log('%s: unexpected input: %s' % (__addonid__, line), xbmc.LOGERROR)
+      xbmc.log(f'{__addonid__}: unexpected input: {line}', xbmc.LOGERROR)
 
 
   def quit(self):
 
-    xbmc.log('%s: stopping add-on' % __addonid__, xbmc.LOGINFO)
+    xbmc.log(f'{__addonid__}: stopping add-on', xbmc.LOGINFO)
 
     self.service.terminate()
     self._thread.join()

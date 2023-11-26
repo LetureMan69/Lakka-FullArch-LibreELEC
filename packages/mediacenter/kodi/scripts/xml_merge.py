@@ -25,7 +25,7 @@ class XMLCombiner(object):
             for f in filenames:
               self.roots.append(et.parse(f).getroot())
         except xml.etree.ElementTree.ParseError:
-            printerr("ERROR: Unable to parse XML file %s" % f)
+            printerr(f"ERROR: Unable to parse XML file {f}")
             raise
 
     def prettyPrint(self, etree_xml):

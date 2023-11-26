@@ -12,7 +12,7 @@ _            = __addon__.getLocalizedString
 # http://forum.kodi.tv/showthread.php?tid=230766
 def handle_wait(time_to_wait, title, text):
     dialog = xbmcgui.DialogProgress()
-    ret = dialog.create(' ' + title)
+    ret = dialog.create(f' {title}')
     secs = 0
     percent = 0
     increment = int(100 / time_to_wait)

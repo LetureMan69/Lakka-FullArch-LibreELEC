@@ -18,20 +18,17 @@ class Librespot(librespot.Librespot):
         self._sap_server = subprocess.Popen(sap_cmd,
                                             stdout=subprocess.DEVNULL,
                                             stderr=subprocess.STDOUT)
-        service.log(f'sap server started')
+        service.log('sap server started')
         if not pa_rtp_port:
             with socket.socket() as s:
                 s.bind((pa_rtp_address, 0))
                 pa_rtp_port = s.getsockname()[1]
         modules = [
+            ['module-null-sink', f'sink_name={pa_rtp_device}'],
             [
-                f'module-null-sink',
-                f'sink_name={pa_rtp_device}',
-            ],
-            [
-                f'module-rtp-send',
+                'module-rtp-send',
                 f'destination_ip={pa_rtp_address}',
-                f'inhibit_auto_suspend=always',
+                'inhibit_auto_suspend=always',
                 f'port={pa_rtp_port}',
                 f'source={pa_rtp_device}.monitor',
             ],

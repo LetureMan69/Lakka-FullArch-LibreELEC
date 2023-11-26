@@ -96,37 +96,28 @@ class Generator:
                 self.addRefCounts(pkg_name)
 
     def canBuildJob(self, job):
-        for dep in job["wants"]:
-            if dep not in self.built:
-                return False
-
-        return True
+        return all(dep in self.built for dep in job["wants"])
 
     def getPackagesToRemove(self, job):
-        packages = {}
-
         pkg_name = job["name"].split(":")[0]
-        packages[pkg_name] = True
+        packages = {pkg_name: True}
         for pkg_name in job["unpacks"]:
             self.addUnpackPackages(pkg_name, packages)
 
         for pkg_name in packages:
             if self.refcount[pkg_name] == 0 and \
-                self.sections[pkg_name] != "virtual" and \
-                pkg_name not in self.removedPackages:
+                    self.sections[pkg_name] != "virtual" and \
+                    pkg_name not in self.removedPackages:
                 yield pkg_name
 
     def getPackageReferenceCounts(self, job):
-        packages = {}
-
         pkg_name = job["name"].split(":")[0]
-        packages[pkg_name] = True
+        packages = {pkg_name: True}
         for pkg_name in job["unpacks"]:
             self.addUnpackPackages(pkg_name, packages)
 
         for pkg_name in packages:
-            tokens = ""
-            tokens += "[v]" if self.sections[pkg_name] == "virtual" else ""
+            tokens = "" + ("[v]" if self.sections[pkg_name] == "virtual" else "")
             tokens += "[r]" if pkg_name in self.removedPackages else ""
             yield("%s:%d%s" % (pkg_name, self.refcount[pkg_name], tokens))
 
@@ -134,19 +125,14 @@ class Generator:
         for dep in job["wants"]:
             if dep in self.failed:
                 failedjob = self.getFirstFailedJob(self.failed[dep])
-                if not failedjob:
-                    return self.failed[dep]
-                else:
-                    return failedjob
-
+                return self.failed[dep] if not failedjob else failedjob
         return None
 
     def getAllFailedJobs(self, job):
         flist = {}
         for dep in job["wants"]:
             if dep in self.failed:
-                failedjob = self.getFirstFailedJob(self.failed[dep])
-                if failedjob:
+                if failedjob := self.getFirstFailedJob(self.failed[dep]):
                     flist[failedjob["name"]] = failedjob
                 else:
                     flist[dep] = self.failed[dep]
@@ -200,8 +186,7 @@ class Generator:
         return len(self.building)
 
     def activeJobNames(self):
-        for name in self.building:
-            yield name
+        yield from self.building
 
     def failedJobCount(self):
         return len(self.failed)
@@ -282,7 +267,7 @@ class BuildProcess(threading.Thread):
     def run(self):
         while not self.stopping:
             job = self.work.get(block=True)
-            if job == None or self.stopping:
+            if job is None or self.stopping:
                 break
 
             self.active = True
@@ -301,17 +286,24 @@ class BuildProcess(threading.Thread):
         if job["failedjobs"]:
             flist = []
             for fjob in job["failedjobs"]:
-                failedinfo = "%s,%s" % (fjob["task"], fjob["name"])
+                failedinfo = f'{fjob["task"]},{fjob["name"]}'
                 if fjob["logfile"]:
-                    failedinfo = "%s,%s" % (failedinfo, fjob["seq"])
+                    failedinfo = f'{failedinfo},{fjob["seq"]}'
                 flist.append(failedinfo)
             failedinfo = ";".join(flist)
         else:
             failedinfo = ""
 
-        job["args"] = ["%s/%s/pkgbuild" % (ROOT, SCRIPTS),
-                       "%d" % self.slot, "%d" % job["seq"], "%d" % self.jobtotal, "%d" % self.maxslot,
-                       job["task"], job["name"], failedinfo]
+        job["args"] = [
+            f"{ROOT}/{SCRIPTS}/pkgbuild",
+            "%d" % self.slot,
+            "%d" % job["seq"],
+            "%d" % self.jobtotal,
+            "%d" % self.maxslot,
+            job["task"],
+            job["name"],
+            failedinfo,
+        ]
 
         job["start"] = time.time()
         returncode = 1
@@ -354,8 +346,8 @@ class BuildProcess(threading.Thread):
 
 class Builder:
     def __init__(self, maxthreadcount, inputfilename, jobglog, loadstats, stats_interval, \
-                 haltonerror=True, failimmediately=True, log_burst=True, log_combine="always", \
-                 bookends=True, autoremove=False, colors=False, progress=False, debug=False, verbose=False):
+                     haltonerror=True, failimmediately=True, log_burst=True, log_combine="always", \
+                     bookends=True, autoremove=False, colors=False, progress=False, debug=False, verbose=False):
         if inputfilename == "-":
             plan = json.load(sys.stdin)
         else:
@@ -371,11 +363,7 @@ class Builder:
         if maxthreadcount.endswith("%"):
             self.threadcount = int(multiprocessing.cpu_count() / 100 * int(args.max_procs.replace("%","")))
         else:
-            if args.max_procs == "0":
-                self.threadcount = 256
-            else:
-                self.threadcount = int(maxthreadcount)
-
+            self.threadcount = 256 if args.max_procs == "0" else int(maxthreadcount)
         self.threadcount = min(self.jobtotal, self.threadcount)
         self.threadcount = max(1, self.threadcount)
 
@@ -412,9 +400,17 @@ class Builder:
 
         # Init all processes
         self.processes = []
-        for i in range(1, self.threadcount + 1):
-            self.processes.append(BuildProcess(i, self.threadcount, self.jobtotal, self.haltonerror, self.work, self.complete))
-
+        self.processes.extend(
+            BuildProcess(
+                i,
+                self.threadcount,
+                self.jobtotal,
+                self.haltonerror,
+                self.work,
+                self.complete,
+            )
+            for i in range(1, self.threadcount + 1)
+        )
         # work and completion sequences
         self.wseq = 0
         self.cseq = 0
@@ -428,13 +424,14 @@ class Builder:
             self.resize_handler = signal.signal(signal.SIGWINCH, self.getTerminalSize)
 
         self.colors = (colors == "always" or (colors == "auto" and sys.stderr.isatty()))
-        self.color_code = {}
-        self.color_code["DONE"] = "\033[0;32m" #green
-        self.color_code["FAIL"] = "\033[1;31m" #bold red
-        self.color_code["ACTV"] = "\033[0;33m" #yellow
-        self.color_code["IDLE"] = "\033[0;35m" #magenta
-        self.color_code["INIT"] = "\033[0;36m" #cyan
-        self.color_code["WAIT"] = "\033[0;35m" #magenta
+        self.color_code = {
+            "DONE": "\033[0;32m",
+            "FAIL": "\033[1;31m",
+            "ACTV": "\033[0;33m",
+            "IDLE": "\033[0;35m",
+            "INIT": "\033[0;36m",
+            "WAIT": "\033[0;35m",
+        }
 
     def build(self):
         if self.joblog:
@@ -474,7 +471,7 @@ class Builder:
                 if failed != []:
                     self.oprint("\nThe following log(s) for this failure are available:")
                     for job in failed:
-                        self.oprint("  %s => %s" % (job["name"], job["logfile"]))
+                        self.oprint(f'  {job["name"]} => {job["logfile"]}')
                     self.oprint("", flush=True)
             return False
 
@@ -489,23 +486,22 @@ class Builder:
         # (but don't schedule new work) if we are to exit after all currently
         # active jobs have finished, otherwise return False.
         if self.haltonerror and self.generator.failedJobCount() != 0:
-            if not self.failimmediately and self.generator.activeJobCount() != 0:
-                freeslots = self.threadcount - self.generator.activeJobCount()
-                self.show_status("WAIT", "waiting", ", ".join(self.generator.activeJobNames()))
-                DEBUG("Waiting for : %d active, %d idle [%s]" % (self.generator.activeJobCount(), freeslots, ", ".join(self.generator.activeJobNames())))
-                return True
-            else:
+            if self.failimmediately or self.generator.activeJobCount() == 0:
                 return False
 
+            freeslots = self.threadcount - self.generator.activeJobCount()
+            self.show_status("WAIT", "waiting", ", ".join(self.generator.activeJobNames()))
+            DEBUG("Waiting for : %d active, %d idle [%s]" % (self.generator.activeJobCount(), freeslots, ", ".join(self.generator.activeJobNames())))
+            return True
         try:
-            for i in range(self.generator.activeJobCount(), self.threadcount):
+            for _ in range(self.generator.activeJobCount(), self.threadcount):
                 job = self.generator.getNextJob()
 
                 if self.verbose:
                     self.show_status("INIT", "submit", job["name"])
 
                 if self.debug:
-                    DEBUG("Queueing Job: %s %s" % (job["task"], job["name"]))
+                    DEBUG(f'Queueing Job: {job["task"]} {job["name"]}')
 
                 self.wseq += 1
                 job["seq"] = self.wseq
@@ -524,9 +520,10 @@ class Builder:
         except GeneratorStalled:
             if self.verbose:
                 freeslots = self.threadcount - self.generator.activeJobCount()
-                pending = []
-                for (i, (package, wants)) in enumerate(self.generator.getStallInfo()):
-                    pending.append("%s (wants: %s)" % (package, ", ".join(wants)))
+                pending = [
+                    f'{package} (wants: {", ".join(wants)})'
+                    for package, wants in self.generator.getStallInfo()
+                ]
                 self.show_status("ACTV", "active", ", ".join(self.generator.activeJobNames()))
                 self.show_status("IDLE", "stalled", "; ".join(pending), p1=len(pending))
 
@@ -536,9 +533,9 @@ class Builder:
                 for (i, (package, wants)) in enumerate(self.generator.getStallInfo()):
                     item = "%-25s wants: %s" % (package, ", ".join(wants))
                     if i == 0:
-                        DEBUG("Stalled Jobs: %s" % item)
+                        DEBUG(f"Stalled Jobs: {item}")
                     else:
-                        DEBUG("              %s" % item)
+                        DEBUG(f"              {item}")
 
         except GeneratorEmpty:
             if self.generator.activeJobCount() == 0:
@@ -574,12 +571,11 @@ class Builder:
         self.flush()
 
         if not self.loadstatsfile:
-            if self.progress:
-                now = time.time()
-                return int(now + 1) - now
-            else:
+            if not self.progress:
                 return None
 
+            now = time.time()
+            return int(now + 1) - now
         now = time.time()
         if now >= self.nextstats or finished:
             self.nextstats = int(now - (now % self.stats_interval)) + self.stats_interval
@@ -589,9 +585,9 @@ class Builder:
             meminfo = self.getMemory()
 
             print("%d %06d %5s %5s %5s %3s %4s %9d %2d %s" % (now, now - self.build_start, \
-                  loadavg[0], loadavg[1], loadavg[2], procs[0], procs[1], meminfo["MemAvailable"], \
-                  self.generator.activeJobCount(), ",".join(self.generator.activeJobNames())), \
-                  file=self.loadstatsfile, flush=True)
+                      loadavg[0], loadavg[1], loadavg[2], procs[0], procs[1], meminfo["MemAvailable"], \
+                      self.generator.activeJobCount(), ",".join(self.generator.activeJobNames())), \
+                      file=self.loadstatsfile, flush=True)
 
         if self.progress:
             return min((self.nextstats - now), int(now + 1) - now)
@@ -599,45 +595,53 @@ class Builder:
             return (self.nextstats - now)
 
     def displayProgress(self):
-        if self.progress:
-            freeslots = self.threadcount - self.generator.activeJobCount()
-            if self.jobtotal != self.generator.completedJobCount():
-                percent = "%0.2f" % (100 / self.jobtotal * self.generator.completedJobCount())
-            else:
-                percent = "100"
-            loadavg = self.getLoad()
-            meminfo = self.getMemory()
-            available = int(meminfo["MemAvailable"]) / 1024
+        if not self.progress:
+            return
+        freeslots = self.threadcount - self.generator.activeJobCount()
+        if self.jobtotal != self.generator.completedJobCount():
+            percent = "%0.2f" % (100 / self.jobtotal * self.generator.completedJobCount())
+        else:
+            percent = "100"
+        loadavg = self.getLoad()
+        meminfo = self.getMemory()
+        available = int(meminfo["MemAvailable"]) / 1024
 
-            lines = [ "",
-                      "%s: %5s%% | load: %s mem: %d MB | failed: %d idle: %d active: %d" % \
-                          (self.secs2hms(time.time() - self.build_start), percent, \
-                           loadavg[0], available, \
-                           self.generator.failedJobCount(), freeslots, self.generator.activeJobCount()),
-                      "Building: %s" % ", ".join(self.generator.activeJobNames())
-                    ]
+        lines = [
+            "",
+            "%s: %5s%% | load: %s mem: %d MB | failed: %d idle: %d active: %d"
+            % (
+                self.secs2hms(time.time() - self.build_start),
+                percent,
+                loadavg[0],
+                available,
+                self.generator.failedJobCount(),
+                freeslots,
+                self.generator.activeJobCount(),
+            ),
+            f'Building: {", ".join(self.generator.activeJobNames())}',
+        ]
 
-            columns = self.columns # in theory could change mid-loop
-            output = []
-            for line in lines:
-                output.append(line if len(line) < columns else "%s+" % line[0:columns - 2])
+        columns = self.columns # in theory could change mid-loop
+        output = [
+            line if len(line) < columns else f"{line[:columns - 2]}+"
+            for line in lines
+        ]
+        if not self.progress_glitch_fix:
+            self.progress_glitch_fix = "%s\033[%dA" % ("\n" * len(output), len(output))
 
-            if not self.progress_glitch_fix:
-                self.progress_glitch_fix = "%s\033[%dA" % ("\n" * len(output), len(output))
-
-            # \033[?7l: disable linewrap
-            # \033[0K: clear cursor to end of line (every line but last)
-            # \033[0J: clear cursor to end of screen (last line)
-            # \033%dA: move cursor up %d lines (move back to "home" position)
-            # \033[?7h: re-enable linewrap
-            #
-            # When the console is resized to a narrower width, lines wider than the
-            # new console width may be wrapped to a second line (depends on console
-            # software, for example PuTTY) so disable line wrapping to prevent this.
-            #
-            self.eprint("\033[?7l%s\033[0J\r\033[%dA\033[?7h" % ("\033[0K\n".join(output), len(output) - 1),
-                  end="\r", isProgress=True)
-            self.progress_dirty = True
+        # \033[?7l: disable linewrap
+        # \033[0K: clear cursor to end of line (every line but last)
+        # \033[0J: clear cursor to end of screen (last line)
+        # \033%dA: move cursor up %d lines (move back to "home" position)
+        # \033[?7h: re-enable linewrap
+        #
+        # When the console is resized to a narrower width, lines wider than the
+        # new console width may be wrapped to a second line (depends on console
+        # software, for example PuTTY) so disable line wrapping to prevent this.
+        #
+        self.eprint("\033[?7l%s\033[0J\r\033[%dA\033[?7h" % ("\033[0K\n".join(output), len(output) - 1),
+              end="\r", isProgress=True)
+        self.progress_dirty = True
 
     def clearProgress(self):
         if self.progress and self.progress_dirty:
@@ -671,7 +675,7 @@ class Builder:
         if job["logfile"]:
             if self.log_combine == "always" or (job["failed"] and self.log_combine == "fail"):
                 if self.bookends:
-                    self.oprint("<<< %s seq %s <<<" % (job["name"], job["seq"]))
+                    self.oprint(f'<<< {job["name"]} seq {job["seq"]} <<<')
 
                 try:
                     with open(job["logfile"], "r", encoding="utf-8", errors="replace") as logfile:
@@ -685,14 +689,14 @@ class Builder:
                     self.oprint("\nThe following log for this failure is available:\n  %s\n" % job["logfile"])
 
                 if self.bookends:
-                    self.oprint(">>> %s seq %s >>>" % (job["name"], job["seq"]))
+                    self.oprint(f'>>> {job["name"]} seq {job["seq"]} >>>')
 
                 log_processed = True
 
         elif job["cmdproc"]:
             if self.log_combine == "always" or (job["failed"] and self.log_combine == "fail"):
                 if self.bookends:
-                    self.oprint("<<< %s" % job["name"])
+                    self.oprint(f'<<< {job["name"]}')
 
                 for line in job["cmdproc"].stdout:
                     self.oprint(line, end="")
@@ -705,7 +709,7 @@ class Builder:
                     job["autoremove"] = None
 
                 if self.bookends:
-                    self.oprint(">>> %s" % job["name"])
+                    self.oprint(f'>>> {job["name"]}')
 
                 log_processed = True
 
@@ -715,7 +719,11 @@ class Builder:
             if self.debug:
                 log_elapsed = time.time() - log_start
                 log_rate = int(log_size / log_elapsed) if log_elapsed != 0 else 0
-                log_data = ", %s" % "/".join(job["logfile"].split("/")[-2:]) if job["logfile"] else ""
+                log_data = (
+                    f', {"/".join(job["logfile"].split("/")[-2:])}'
+                    if job["logfile"]
+                    else ""
+                )
                 DEBUG("WRITING LOG : {0:,} bytes in {1:0.3f} seconds ({2:,d} bytes/sec{3:})".format(log_size, log_elapsed, log_rate, log_data))
 
     # Log completion stats for job
@@ -732,33 +740,36 @@ class Builder:
     # Output from the subprocess is either appended to the burst logfile
     # or is captured for later output to stdout (after the correspnding logfile).
     def autoRemovePackages(self, job):
-        if self.autoremove:
-            if self.debug:
-                DEBUG("Cleaning Pkg: %s (%s)" % (job["name"], ", ".join(self.generator.getPackageReferenceCounts(job))))
+        if not self.autoremove:
+            return
+        if self.debug:
+            DEBUG(
+                f'Cleaning Pkg: {job["name"]} ({", ".join(self.generator.getPackageReferenceCounts(job))})'
+            )
 
-            for pkg_name in self.generator.getPackagesToRemove(job):
-                DEBUG("Removing Pkg: %s" % pkg_name)
-                args = ["%s/%s/autoremove" % (ROOT, SCRIPTS), pkg_name]
-                if job["logfile"]:
-                    with open(job["logfile"], "a") as logfile:
-                        cmd = subprocess.run(args, cwd=ROOT,
-                                             stdin=subprocess.PIPE, stdout=logfile, stderr=subprocess.STDOUT,
-                                             universal_newlines=True, shell=False)
-                else:
-                    job["autoremove"] = subprocess.run(args, cwd=ROOT,
-                                             stdin=subprocess.PIPE, capture_output=True,
-                                             universal_newlines=True, shell=False)
+        for pkg_name in self.generator.getPackagesToRemove(job):
+            DEBUG(f"Removing Pkg: {pkg_name}")
+            args = [f"{ROOT}/{SCRIPTS}/autoremove", pkg_name]
+            if job["logfile"]:
+                with open(job["logfile"], "a") as logfile:
+                    cmd = subprocess.run(args, cwd=ROOT,
+                                         stdin=subprocess.PIPE, stdout=logfile, stderr=subprocess.STDOUT,
+                                         universal_newlines=True, shell=False)
+            else:
+                job["autoremove"] = subprocess.run(args, cwd=ROOT,
+                                         stdin=subprocess.PIPE, capture_output=True,
+                                         universal_newlines=True, shell=False)
 
-                self.generator.removed(pkg_name)
+            self.generator.removed(pkg_name)
 
     def show_status(self, status, task, data, p1=None, p2=None):
-        p1 = (self.threadcount - self.generator.activeJobCount()) if p1 == None else p1
-        p2 = self.generator.activeJobCount() if p2 == None else p2
+        p1 = self.threadcount - self.generator.activeJobCount() if p1 is None else p1
+        p2 = self.generator.activeJobCount() if p2 is None else p2
 
         colored_status = "%s%-4s\033[0m" % (self.color_code[status], status) if self.colors else "%-4s" % status
 
         self.eprint("%s[%0*d/%0*d] [%s] %-7s %s" % \
-            (self.progress_glitch_fix, self.twidth, p1, self.twidth, p2, colored_status, task, data))
+                (self.progress_glitch_fix, self.twidth, p1, self.twidth, p2, colored_status, task, data))
 
     def stopProcesses(self):
         if self.processes:
@@ -808,7 +819,10 @@ class Builder:
         return open("/proc/loadavg", "r").readline().split()
 
     def getMemory(self):
-        return dict((i.split()[0].rstrip(':'),int(i.split()[1])) for i in open("/proc/meminfo", "r").readlines())
+        return {
+            i.split()[0].rstrip(':'): int(i.split()[1])
+            for i in open("/proc/meminfo", "r").readlines()
+        }
 
     def getTerminalSize(self, signum = None, frame = None):
         h, w, hp, wp = struct.unpack('HHHH',
@@ -824,7 +838,7 @@ class Builder:
 
 def DEBUG(msg):
     if DEBUG_LOG:
-        print("%s: %s" % (datetime.datetime.now(), msg), file=DEBUG_LOG, flush=True)
+        print(f"{datetime.datetime.now()}: {msg}", file=DEBUG_LOG, flush=True)
 
 parser = argparse.ArgumentParser(description="Run processes to build the specified JSON plan", \
                                  formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=25,width=90))
@@ -899,13 +913,13 @@ SCRIPTS = os.environ.get("SCRIPTS", "scripts")
 THREAD_CONTROL = os.environ["THREAD_CONTROL"]
 
 if args.debug:
-    debug_log = "%s/debug.log" % THREAD_CONTROL
+    debug_log = f"{THREAD_CONTROL}/debug.log"
     DEBUG_LOG = open(debug_log, "w")
     print("Debug information is being written to: %s\n" % debug_log, file=sys.stderr, flush=True)
 else:
     DEBUG_LOG = None
 
-with open("%s/parallel.pid" % THREAD_CONTROL, "w") as pid:
+with open(f"{THREAD_CONTROL}/parallel.pid", "w") as pid:
     print("%d" % os.getpid(), file=pid)
 
 try:
