@@ -10,8 +10,8 @@ except:
   sys.exit(1)
 
 __cwd__     = os.path.dirname(os.path.realpath(__file__))
-__rules__    = __cwd__ + '/../udev.d/96-nvidia.rules'
-__package__ = __cwd__ + '/../package.mk'
+__rules__ = f'{__cwd__}/../udev.d/96-nvidia.rules'
+__package__ = f'{__cwd__}/../package.mk'
 
 # Get the Nvidia driver version currently being used
 for line in open(__package__, 'r'):
@@ -19,7 +19,7 @@ for line in open(__package__, 'r'):
    __version__ = line.split('=')[1].replace('"','').strip()
    break
 
-url = 'http://us.download.nvidia.com/XFree86/Linux-x86_64/' + __version__ + '/README/supportedchips.html'
+url = f'http://us.download.nvidia.com/XFree86/Linux-x86_64/{__version__}/README/supportedchips.html'
 
 headers = {
   'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
@@ -36,14 +36,11 @@ tree = html.fromstring(page.content)
 
 ids = []
 for table in range(1, 5):
-  ids = ids + tree.xpath('//html/body/div[@class="appendix"]/div[@class="informaltable"][' + str(table) + ']/table/tbody/tr[starts-with(@id, "devid")]/td[2]//text()')
+  ids = ids + tree.xpath(
+      f'//html/body/div[@class="appendix"]/div[@class="informaltable"][{str(table)}]/table/tbody/tr[starts-with(@id, "devid")]/td[2]//text()'
+  )
 
-# If three IDs are listed, the first is the PCI Device ID, the second is the PCI Subsystem Vendor ID, and the third is the PCI Subsystem Device ID.
-# We only want the PCI Device ID (the first value)
-unique_ids = []
-for id in ids:
-    unique_ids.append(id.split()[0].lower())
-
+unique_ids = [id.split()[0].lower() for id in ids]
 # Sort and remove duplicate ID's
 unique_ids = sorted(set(unique_ids))
 

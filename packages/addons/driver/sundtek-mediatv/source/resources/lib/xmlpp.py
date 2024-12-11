@@ -38,44 +38,45 @@ def _usage(this_file):
 USAGE: python %s <filename> \n""" % this_file
 
 def _pprint_line(indent_level, line, width=100, output=_sys.stdout, ignore_contents = False):
-    if line.strip():
-        start = ""
-        number_chars = 0
-        for l in range(indent_level):
-            start = start + " "
-            number_chars = number_chars + 1
-        if not ignore_contents:
-            try:
-                elem_start = _re.findall("(\<\W{0,1}\w+:\w+) ?", line)[0]
-                elem_finished = _re.findall("([?|\]\]/|\-\-]*\>)", line)[0] 
-                #should not have *
-                attrs = _re.findall("(\S*?\=\".*?\")", line)
-                output.write(start + elem_start)
-                number_chars = len(start + elem_start)
-                for attr in attrs:
-                    if (attrs.index(attr) + 1) == len(attrs):
-                        number_chars = number_chars + len(elem_finished)
-                    if (number_chars + len(attr) + 1) > width:
-                        output.write("\n")
-                        for i in range(len(start + elem_start) + 1):
-                            output.write(" ")
-                        number_chars = len(start + elem_start) + 1 
-                    else:
+    if not line.strip():
+        return
+    start = ""
+    number_chars = 0
+    for _ in range(indent_level):
+        start = f"{start} "
+        number_chars = number_chars + 1
+    if not ignore_contents:
+        try:
+            elem_start = _re.findall("(\<\W{0,1}\w+:\w+) ?", line)[0]
+            elem_finished = _re.findall("([?|\]\]/|\-\-]*\>)", line)[0]
+            #should not have *
+            attrs = _re.findall("(\S*?\=\".*?\")", line)
+            output.write(start + elem_start)
+            number_chars = len(start + elem_start)
+            for attr in attrs:
+                if (attrs.index(attr) + 1) == len(attrs):
+                    number_chars = number_chars + len(elem_finished)
+                if (number_chars + len(attr) + 1) > width:
+                    output.write("\n")
+                    for _ in range(len(start + elem_start) + 1):
                         output.write(" ")
-                        number_chars = number_chars + 1
-                    output.write(attr)
-                    number_chars = number_chars + len(attr)
-                output.write(elem_finished + "\n")
-            except IndexError:
-                #give up pretty print this line
-                output.write(start + line + "\n")
-        else:
+                    number_chars = len(start + elem_start) + 1
+                else:
+                    output.write(" ")
+                    number_chars = number_chars + 1
+                output.write(attr)
+                number_chars = number_chars + len(attr)
+            output.write(elem_finished + "\n")
+        except IndexError:
+            #give up pretty print this line
             output.write(start + line + "\n")
+    else:
+        output.write(start + line + "\n")
                 
 
 def _pprint_elem_content(indent_level, line, output=_sys.stdout):
     if line.strip():
-        for l in range(indent_level):
+        for _ in range(indent_level):
             output.write(" ")
         output.write(line + "\n")
 

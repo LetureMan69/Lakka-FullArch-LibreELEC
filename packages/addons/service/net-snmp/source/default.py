@@ -19,10 +19,10 @@ class MyMonitor(xbmc.Monitor):
 __addon__ = xbmcaddon.Addon(id='service.net-snmp')
 __addonpath__ = xbmcvfs.translatePath(__addon__.getAddonInfo('path'))
 __addonhome__ = xbmcvfs.translatePath(__addon__.getAddonInfo('profile'))
-if not xbmcvfs.exists(xbmcvfs.translatePath(__addonhome__ + 'share/snmp/')):
-    xbmcvfs.mkdirs(xbmcvfs.translatePath(__addonhome__ + 'share/snmp/'))
-config = xbmcvfs.translatePath(__addonhome__ + 'share/snmp/snmpd.conf')
-persistent = xbmcvfs.translatePath(__addonhome__ + 'snmpd.conf')
+if not xbmcvfs.exists(xbmcvfs.translatePath(f'{__addonhome__}share/snmp/')):
+    xbmcvfs.mkdirs(xbmcvfs.translatePath(f'{__addonhome__}share/snmp/'))
+config = xbmcvfs.translatePath(f'{__addonhome__}share/snmp/snmpd.conf')
+persistent = xbmcvfs.translatePath(f'{__addonhome__}snmpd.conf')
 
 
 def writeconfig():
@@ -38,12 +38,12 @@ def writeconfig():
         xbmcvfs.delete(persistent)
 
     file = xbmcvfs.File(config, 'w')
-    file.write('com2sec local default {}\n'.format(community))
-    file.write('group localgroup {} local\n'.format(snmpversion))
+    file.write(f'com2sec local default {community}\n')
+    file.write(f'group localgroup {snmpversion} local\n')
     file.write('access localgroup "" any noauth exact all all none\n')
     file.write('view all included .1 80\n')
-    file.write('syslocation {}\n'.format(location))
-    file.write('syscontact {}\n'.format(contact))
+    file.write(f'syslocation {location}\n')
+    file.write(f'syscontact {contact}\n')
     file.write('dontLogTCPWrappersConnects yes\n')
 
     if cputemp == "true":

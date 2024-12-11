@@ -57,13 +57,12 @@ class DtEntry(object):
         if arg[0] == '/':
             # TODO(b/XXX): Use pylibfdt to get property value from DT
             raise ValueError('Invalid argument passed to DTImage')
-        else:
-            base = 10
-            if arg.startswith('0x') or arg.startswith('0X'):
-                base = 16
-            elif arg.startswith('0'):
-                base = 8
-            return int(arg, base)
+        base = 10
+        if arg.startswith('0x') or arg.startswith('0X'):
+            base = 16
+        elif arg.startswith('0'):
+            base = 8
+        return int(arg, base)
     def __init__(self, **kwargs):
         """Constructor for DtEntry object.
         Initializes attributes from dictionary object that contains
@@ -79,8 +78,7 @@ class DtEntry(object):
             required_keys = self.REQUIRED_KEYS_V0
         elif self.__version == 1:
             required_keys = self.REQUIRED_KEYS_V1
-        missing_keys = set(required_keys) - set(kwargs)
-        if missing_keys:
+        if missing_keys := set(required_keys) - set(kwargs):
             raise ValueError('Missing keys in DtEntry constructor: %r' %
                              sorted(missing_keys))
         self.__dt_file = kwargs['dt_file']
@@ -96,15 +94,14 @@ class DtEntry(object):
         if self.__version == 0:
             self.__custom3 = self.__get_number_or_prop(kwargs['custom3'])
     def __str__(self):
-        sb = []
-        sb.append('{key:>20} = {value:d}'.format(key='dt_size',
-                                                 value=self.__dt_size))
-        sb.append('{key:>20} = {value:d}'.format(key='dt_offset',
-                                                 value=self.__dt_offset))
-        sb.append('{key:>20} = {value:08x}'.format(key='id',
-                                                   value=self.__id))
-        sb.append('{key:>20} = {value:08x}'.format(key='rev',
-                                                   value=self.__rev))
+        sb = [
+            '{key:>20} = {value:d}'.format(key='dt_size', value=self.__dt_size),
+            '{key:>20} = {value:d}'.format(
+                key='dt_offset', value=self.__dt_offset
+            ),
+            '{key:>20} = {value:08x}'.format(key='id', value=self.__id),
+            '{key:>20} = {value:08x}'.format(key='rev', value=self.__rev),
+        ]
         if self.__version == 1:
             sb.append('{key:>20} = {value:08x}'.format(key='flags',
                                                        value=self.__flags))
@@ -249,7 +246,7 @@ class Dtbo(object):
          self.dt_entry_size, self.dt_entry_count, self.dt_entries_offset,
          self.page_size, self.version) = struct.unpack_from('>8I', buf, 0)
         # verify the header
-        if self.magic != self._DTBO_MAGIC and self.magic != self._ACPIO_MAGIC:
+        if self.magic not in [self._DTBO_MAGIC, self._ACPIO_MAGIC]:
             raise ValueError('Invalid magic number 0x%x in DTBO/ACPIO file' %
                              (self.magic))
         if self.header_size != self._DT_TABLE_HEADER_SIZE:
@@ -268,10 +265,8 @@ class Dtbo(object):
         if self.__dt_entries:
             raise ValueError('DTBO DT entries can be added only once')
         offset = self.dt_entries_offset // 4
-        params = {}
-        params['version'] = self.version
-        params['dt_file'] = None
-        for i in range(0, self.dt_entry_count):
+        params = {'version': self.version, 'dt_file': None}
+        for _ in range(0, self.dt_entry_count):
             dt_table_entry = self.__metadata[offset:offset + self._DT_ENTRY_HEADER_INTS]
             params['dt_size'] = dt_table_entry[0]
             params['dt_offset'] = dt_table_entry[1]
@@ -303,7 +298,7 @@ class Dtbo(object):
                     self.dt_entry_count * self._DT_ENTRY_HEADER_INTS)
         if self.dt_entries_offset > self._DT_TABLE_HEADER_SIZE:
             num_ints += (self.dt_entries_offset - self._DT_TABLE_HEADER_SIZE) / 4
-        format_str = '>' + str(num_ints) + 'I'
+        format_str = f'>{str(num_ints)}I'
         self.__file.seek(0)
         self.__metadata = struct.unpack(format_str,
                                         self.__file.read(self.__metadata_size))
@@ -337,10 +332,7 @@ class Dtbo(object):
         # if page_size is given, assume the object is being instantiated to
         # create a DTBO file
         if page_size:
-            if dt_type == 'acpi':
-                self.magic = self._ACPIO_MAGIC
-            else:
-                self.magic = self._DTBO_MAGIC
+            self.magic = self._ACPIO_MAGIC if dt_type == 'acpi' else self._DTBO_MAGIC
             self.total_size = self._DT_TABLE_HEADER_SIZE
             self.header_size = self._DT_TABLE_HEADER_SIZE
             self.dt_entry_size = self._DT_ENTRY_HEADER_SIZE
@@ -352,8 +344,7 @@ class Dtbo(object):
         else:
             self._read_dtbo_image()
     def __str__(self):
-        sb = []
-        sb.append('dt_table_header:')
+        sb = ['dt_table_header:']
         _keys = ('magic', 'total_size', 'header_size', 'dt_entry_size',
                  'dt_entry_count', 'dt_entries_offset', 'page_size', 'version')
         for key in _keys:
@@ -365,8 +356,7 @@ class Dtbo(object):
                                                          value=self.__dict__[key]))
         count = 0
         for dt_entry in self.__dt_entries:
-            sb.append('dt_table_entry[{0:d}]:'.format(count))
-            sb.append(str(dt_entry))
+            sb.extend(('dt_table_entry[{0:d}]:'.format(count), str(dt_entry)))
             count = count + 1
         return '\n'.join(sb)
     @property
@@ -460,8 +450,10 @@ class Dtbo(object):
         fout.seek(0)
         compression_format = self.dt_entries[idx].compression_info()
         if decompress and compression_format:
-            if (compression_format == CompressionFormat.ZLIB_COMPRESSION or
-                compression_format == CompressionFormat.GZIP_COMPRESSION):
+            if compression_format in [
+                CompressionFormat.ZLIB_COMPRESSION,
+                CompressionFormat.GZIP_COMPRESSION,
+            ]:
                 fout.write(zlib.decompress(self.__file.read(size), self._ZLIB_DECOMPRESSION_WBITS))
             else:
                 raise ValueError("Unknown compression format detected")
@@ -574,13 +566,13 @@ def parse_config_option(line, is_global, dt_keys, global_key_types):
         the key to make sure its valid.
     """
     if line.find('=') == -1:
-        raise ValueError('Invalid line (%s) in configuration file' % line)
+        raise ValueError(f'Invalid line ({line}) in configuration file')
     key, value = (x.strip() for x in line.split('='))
     if is_global and key in global_key_types:
         if global_key_types[key] is int:
             value = int(value)
     elif key not in dt_keys:
-        raise ValueError('Invalid option (%s) in configuration file' % key)
+        raise ValueError(f'Invalid option ({key}) in configuration file')
     return key, value
 def parse_config_file(fin, dt_keys, global_key_types):
     """Parses the configuration file for creating DTBO image.
@@ -607,7 +599,7 @@ def parse_config_file(fin, dt_keys, global_key_types):
                 ]
     """
     # set all global defaults
-    global_args = dict((k, '0') for k in dt_keys)
+    global_args = {k: '0' for k in dt_keys}
     global_args['dt_type'] = 'dtb'
     global_args['page_size'] = 2048
     global_args['version'] = 0
@@ -619,7 +611,7 @@ def parse_config_file(fin, dt_keys, global_key_types):
         if line.lstrip().startswith('#'):
             continue
         comment_idx = line.find('#')
-        line = line if comment_idx == -1 else line[0:comment_idx]
+        line = line if comment_idx == -1 else line[:comment_idx]
         if not line or line.isspace():
             continue
         if line.startswith((' ', '\t')) and not found_dt_entry:
@@ -648,7 +640,7 @@ def parse_create_args(arg_list):
         if not arg.startswith("--"):
             break
         image_arg_index = image_arg_index + 1
-    argv = arg_list[0:image_arg_index]
+    argv = arg_list[:image_arg_index]
     remainder = arg_list[image_arg_index:]
     parser = argparse.ArgumentParser(prog='create', add_help=False)
     parser.add_argument('--dt_type', type=str, dest='dt_type',
@@ -752,8 +744,7 @@ def create_dtbo_image_from_config(fout, argv):
     global_args, dt_args = parse_config_file(args.conf_file,
                                              _DT_KEYS, _GLOBAL_KEY_TYPES)
     version = global_args['version']
-    params = {}
-    params['version'] = version
+    params = {'version': version}
     dt_entries = []
     for dt_arg in dt_args:
         filepath = dt_arg['filename']
@@ -765,10 +756,7 @@ def create_dtbo_image_from_config(fout, argv):
         params['dt_offset'] = 0
         params['dt_size'] = os.fstat(params['dt_file'].fileno()).st_size
         for key in _DT_KEYS:
-            if key not in dt_arg:
-                params[key] = global_args[key]
-            else:
-                params[key] = dt_arg[key]
+            params[key] = global_args[key] if key not in dt_arg else dt_arg[key]
         dt_entries.append(DtEntry(**params))
     # Create and write DTBO file
     dtbo = Dtbo(fout, global_args['dt_type'], global_args['page_size'], version)
@@ -780,58 +768,64 @@ def print_default_usage(progname):
     Args:
         progname: This program's name.
     """
-    sb = []
-    sb.append('  ' + progname + ' help all')
-    sb.append('  ' + progname + ' help <command>\n')
-    sb.append('    commands:')
-    sb.append('      help, dump, create, cfg_create')
+    sb = [
+        f'  {progname} help all',
+        f'  {progname}' + ' help <command>\n',
+        '    commands:',
+        '      help, dump, create, cfg_create',
+    ]
     print('\n'.join(sb))
 def print_dump_usage(progname):
     """Prints usage for 'dump' sub-command.
     Args:
         progname: This program's name.
     """
-    sb = []
-    sb.append('  ' + progname + ' dump <image_file> (<option>...)\n')
-    sb.append('    options:')
-    sb.append('      -o, --output <filename>  Output file name.')
-    sb.append('                               Default is output to stdout.')
-    sb.append('      -b, --dtb <filename>     Dump dtb/dtbo files from image.')
-    sb.append('                               Will output to <filename>.0, <filename>.1, etc.')
+    sb = [
+        f'  {progname}' + ' dump <image_file> (<option>...)\n',
+        '    options:',
+        '      -o, --output <filename>  Output file name.',
+        '                               Default is output to stdout.',
+        '      -b, --dtb <filename>     Dump dtb/dtbo files from image.',
+        '                               Will output to <filename>.0, <filename>.1, etc.',
+    ]
     print('\n'.join(sb))
 def print_create_usage(progname):
     """Prints usage for 'create' subcommand.
     Args:
         progname: This program's name.
     """
-    sb = []
-    sb.append('  ' + progname + ' create <image_file> (<global_option>...) (<dtb_file> (<entry_option>...) ...)\n')
-    sb.append('    global_options:')
-    sb.append('      --dt_type=<type>         Device Tree Type (dtb|acpi). Default: dtb')
-    sb.append('      --page_size=<number>     Page size. Default: 2048')
-    sb.append('      --version=<number>       DTBO/ACPIO version. Default: 0')
-    sb.append('      --id=<number>       The default value to set property id in dt_table_entry. Default: 0')
-    sb.append('      --rev=<number>')
-    sb.append('      --flags=<number>')
-    sb.append('      --custom0=<number>')
-    sb.append('      --custom1=<number>')
-    sb.append('      --custom2=<number>\n')
-    sb.append('      --custom3=<number>\n')
-    sb.append('      The value could be a number or a DT node path.')
-    sb.append('      <number> could be a 32-bits digit or hex value, ex. 68000, 0x6800.')
-    sb.append('      <path> format is <full_node_path>:<property_name>, ex. /board/:id,')
-    sb.append('      will read the value in given FTB file with the path.')
+    sb = [
+        f'  {progname}'
+        + ' create <image_file> (<global_option>...) (<dtb_file> (<entry_option>...) ...)\n',
+        '    global_options:',
+        '      --dt_type=<type>         Device Tree Type (dtb|acpi). Default: dtb',
+        '      --page_size=<number>     Page size. Default: 2048',
+        '      --version=<number>       DTBO/ACPIO version. Default: 0',
+        '      --id=<number>       The default value to set property id in dt_table_entry. Default: 0',
+        '      --rev=<number>',
+        '      --flags=<number>',
+        '      --custom0=<number>',
+        '      --custom1=<number>',
+        '      --custom2=<number>\n',
+        '      --custom3=<number>\n',
+        '      The value could be a number or a DT node path.',
+        '      <number> could be a 32-bits digit or hex value, ex. 68000, 0x6800.',
+        '      <path> format is <full_node_path>:<property_name>, ex. /board/:id,',
+        '      will read the value in given FTB file with the path.',
+    ]
     print('\n'.join(sb))
 def print_cfg_create_usage(progname):
     """Prints usage for 'cfg_create' sub-command.
     Args:
         progname: This program's name.
     """
-    sb = []
-    sb.append('  ' + progname + ' cfg_create <image_file> <config_file> (<option>...)\n')
-    sb.append('    options:')
-    sb.append('      -d, --dtb-dir <dir>      The path to load dtb files.')
-    sb.append('                               Default is load from the current path.')
+    sb = [
+        f'  {progname}'
+        + ' cfg_create <image_file> <config_file> (<option>...)\n',
+        '    options:',
+        '      -d, --dtb-dir <dir>      The path to load dtb files.',
+        '                               Default is load from the current path.',
+    ]
     print('\n'.join(sb))
 def print_usage(cmd, _):
     """Prints usage for this program.
@@ -850,11 +844,11 @@ def print_usage(cmd, _):
     if cmd == 'all':
         print_default_usage(prog_name)
     for help_cmd, help_func in help_commands:
-        if cmd == 'all' or cmd == help_cmd:
+        if cmd in ['all', help_cmd]:
             help_func(prog_name)
             if cmd != 'all':
                 return
-    print('Unsupported help command: %s' % cmd, end='\n\n')
+    print(f'Unsupported help command: {cmd}', end='\n\n')
     print_default_usage(prog_name)
     return
 def main():

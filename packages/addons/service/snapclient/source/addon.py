@@ -16,7 +16,7 @@ lines = subprocess.run([SNAPCLIENT, '--list'], capture_output=True, text=True).s
 
 for line in lines:
     if line != '':
-        card = card + ' ' + line
+        card = f'{card} {line}'
     else:
         cards.append(card)
         card = ''

@@ -31,9 +31,7 @@ class LibreELEC_Package:
         s = f"{s}\n{'UNPACKS':<9}: {self.unpacks}"
 
         s = f"{s}\n{'NEEDS':<9}: {self.wants}"
-        s = f"{s}\n{'WANTED BY':<9}: {self.wantedby}"
-
-        return s
+        return f"{s}\n{'WANTED BY':<9}: {self.wantedby}"
 
     def addDependencies(self, target, packages):
         for d in " ".join(packages.split()).split():
@@ -64,10 +62,10 @@ class LibreELEC_Package:
             self.unpacks = packages.strip().split()
 
     def isReferenced(self):
-        return False if self.wants == [] else True
+        return self.wants != []
 
     def isWanted(self):
-        return False if self.wantedby == [] else True
+        return self.wantedby != []
 
     def references(self, package):
         return package in self.wants
@@ -93,10 +91,7 @@ class Node:
 
     # Return True if the dependencies of the specified node are met by this node
     def satisfies(self, node):
-        for e in node.edges:
-            if e not in self.edges:
-                return False
-        return True
+        return all(e in self.edges for e in node.edges)
 
     def __repr__(self):
         s = f"{'name':<9}: {self.name}"
@@ -124,13 +119,11 @@ def eprint(*args, **kwargs):
 def loadPackages():
     jdata = json.loads(f"[{sys.stdin.read().replace(chr(10),'')[:-1]}]")
 
-    map = {}
-
-    # Load "global" packages first
-    for pkg in jdata:
-        if pkg["hierarchy"] == "global":
-            map[pkg["name"]] = initPackage(pkg)
-
+    map = {
+        pkg["name"]: initPackage(pkg)
+        for pkg in jdata
+        if pkg["hierarchy"] == "global"
+    }
     # Then the "local" packages, as these will replace any matching "global" packages
     for pkg in jdata:
         if pkg["hierarchy"] == "local":
@@ -181,7 +174,7 @@ def findbuildpos(node, list):
         alldeps.appendEdges(n)
         if alldeps.satisfies(node):
             if len(n.edges) > len(node.edges):
-                if candidate == None:
+                if candidate is None:
                     candidate = n
                 break
             candidate = n
@@ -217,7 +210,7 @@ def get_build_steps(args, nodes):
     # and don't install them as it's likely we will be building discrete add-ons
     # which are installed outside of the image.
     #
-    install = True if "image" in args.build else False
+    install = "image" in args.build
 
     for pkgname in [x for x in args.build if x]:
         if pkgname.find(":") == -1:

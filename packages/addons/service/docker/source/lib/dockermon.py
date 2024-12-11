@@ -64,7 +64,7 @@ def connect(url):
         netloc = url.path
         hostname = 'localhost'
     else:
-        raise ValueError('unknown socket type: %s' % url.scheme)
+        raise ValueError(f'unknown socket type: {url.scheme}')
 
     sock.connect(netloc)
     return sock, hostname
@@ -86,7 +86,7 @@ def watch(callback, url=default_sock_url, run=None):
         header, payload = read_http_header(sock)
         status, reason = header_status(header)
         if status != HTTP_OK:
-            raise DockermonError('bad HTTP status: %s %s' % (status, reason))
+            raise DockermonError(f'bad HTTP status: {status} {reason}')
 
         # Messages are \r\n<size in hex><JSON payload>\r\n
         buf = [payload]
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.version:
-        print('dockermon %s' % __version__)
+        print(f'dockermon {__version__}')
         raise SystemExit
 
     if args.prog:

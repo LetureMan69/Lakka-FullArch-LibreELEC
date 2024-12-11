@@ -14,7 +14,7 @@ __resources_lib__ = xbmcvfs.translatePath(os.path.join(__cwd__, 'resources', 'li
 __settings_xml__  = xbmcvfs.translatePath(os.path.join(__cwd__, 'resources', 'settings.xml'))
 
 __mediaclient__   = xbmcvfs.translatePath(os.path.join(__cwd__, 'bin', 'mediaclient'))
-__mediaclient_e__ = __mediaclient__ + ' -e'
+__mediaclient_e__ = f'{__mediaclient__} -e'
 __update_sh__     = xbmcvfs.translatePath(os.path.join(__cwd__, 'bin', 'sundtek-update-driver.sh'))
 
 if len(sys.argv) == 2:

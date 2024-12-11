@@ -22,7 +22,7 @@ class Monitor(xbmc.Monitor):
 
       charmap = addon.getSetting('charmap')
       locale = addon.getSetting('locale')
-      lang = locale + '.' + charmap
+      lang = f'{locale}.{charmap}'
 
       path = addon.getAddonInfo('path')
       i18npath = os.path.join(path, 'i18n')
@@ -56,11 +56,9 @@ class Monitor(xbmc.Monitor):
       if os.path.isdir(profiled) == False:
          os.makedirs(profiled)
 
-      file = open(profile, 'w')
-      file.write('export LANG="' + lang + '"\n')
-      file.write('export LOCPATH="' + locpath + '"\n')
-      file.close()
-
+      with open(profile, 'w') as file:
+         file.write(f'export LANG="{lang}' + '"\n')
+         file.write(f'export LOCPATH="{locpath}' + '"\n')
       current = os.environ.get('LANG', '')
       if lang != current:
          if xbmcgui.Dialog().yesno('Locale', strings(30003).format(lang)

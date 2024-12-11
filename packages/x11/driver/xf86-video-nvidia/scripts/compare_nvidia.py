@@ -26,10 +26,7 @@ unique_ids = {}
 all_ids = {i: [] for i in range(1, len(category))}
 
 def id_in_version(id, ids):
-  if any(id == value for value in ids):
-    return "x"
-  else:
-    return " "
+  return "x" if any(id == value for value in ids) else " "
 
 if len(sys.argv) <= 1:
   print("Usage: python compare_nvidia.py <version> ...")
@@ -39,7 +36,7 @@ for version in sys.argv[1:]:
   versions.append(version)
 
 for version in versions:
-  url = 'http://us.download.nvidia.com/XFree86/Linux-x86_64/' + version + '/README/supportedchips.html'
+  url = f'http://us.download.nvidia.com/XFree86/Linux-x86_64/{version}/README/supportedchips.html'
 
   headers = {
     'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
@@ -58,13 +55,21 @@ for version in versions:
   unique_ids[version] = {}
 
   for table in range(1, len(category)):
-    new_ids = tree.xpath('//html/body/div[@class="appendix"]/div[@class="informaltable"][' + str(table) + ']/table/tbody/tr[starts-with(@id, "devid")]/td[2]//text()')
-    new_labels = tree.xpath('//html/body/div[@class="appendix"]/div[@class="informaltable"][' + str(table) + ']/table/tbody/tr[starts-with(@id, "devid")]/td[1]//text()')
+    new_ids = tree.xpath(
+        f'//html/body/div[@class="appendix"]/div[@class="informaltable"][{str(table)}]/table/tbody/tr[starts-with(@id, "devid")]/td[2]//text()'
+    )
+    new_labels = tree.xpath(
+        f'//html/body/div[@class="appendix"]/div[@class="informaltable"][{str(table)}]/table/tbody/tr[starts-with(@id, "devid")]/td[1]//text()'
+    )
 
     # nvidia seems to like to change the way they do things...
     if not new_ids:
-      new_ids = tree.xpath('//html/body/div[@class="appendix"]/div[@class="informaltable"][' + str(table) + ']/table/tbody/tr[starts-with(@id, "0x")]/td[2]//text()')
-      new_labels = tree.xpath('//html/body/div[@class="appendix"]/div[@class="informaltable"][' + str(table) + ']/table/tbody/tr[starts-with(@id, "0x")]/td[1]//text()')
+      new_ids = tree.xpath(
+          f'//html/body/div[@class="appendix"]/div[@class="informaltable"][{str(table)}]/table/tbody/tr[starts-with(@id, "0x")]/td[2]//text()'
+      )
+      new_labels = tree.xpath(
+          f'//html/body/div[@class="appendix"]/div[@class="informaltable"][{str(table)}]/table/tbody/tr[starts-with(@id, "0x")]/td[1]//text()'
+      )
 
       # just to make sure we get the raw id without 0x in front
       new_ids = [re.sub(r"^0x", '', id) for id in new_ids]
@@ -91,7 +96,7 @@ print("-------------------------------------------------------------------------
 
 for table in all_ids:
   all_ids[table] = sorted(set(all_ids[table]))
-  print("%s" % (category[table]))
+  print(f"{category[table]}")
   print("-----------------------------------------------------------------------------------------------")
   for id in all_ids[table]:
     print("%s\t" % (id[0]), end='')

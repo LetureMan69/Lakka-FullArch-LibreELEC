@@ -14,7 +14,7 @@ __author__      = 'lrusak'
 __addon__       = xbmcaddon.Addon()
 __path__        = __addon__.getAddonInfo('path')
 
-sys.path.append(__path__ + 'lib')
+sys.path.append(f'{__path__}lib')
 import dockermon
 
 # docker events for api 1.23 (docker version 1.11.x)
@@ -232,8 +232,8 @@ def print_notification(json_data):
     try:
         if message != '':
             length = int(__addon__.getSetting('notification_length')) * 1000
-            dialog.notification('Docker', message, __path__ + 'resources/icon.png', length)
-            xbmc.log('## service.system.docker ## %s' % message)
+            dialog.notification('Docker', message, f'{__path__}resources/icon.png', length)
+            xbmc.log(f'## service.system.docker ## {message}')
     except NameError as e:
         pass
 

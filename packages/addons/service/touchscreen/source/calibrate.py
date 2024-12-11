@@ -43,7 +43,7 @@ def server_thread(conn, self):
       xbmcgui.Dialog().ok("Calibration", "Calibration done.")
       break
 
-    self.info.setLabel("Touch '" + data + "' crosshair")
+    self.info.setLabel(f"Touch '{data}' crosshair")
     self.targetImage = xbmcgui.ControlImage(
       self.touch_points[self.currentTarget].var_x - CROSSHAIR_IMAGE_OFFSET,
       self.touch_points[self.currentTarget].var_y - CROSSHAIR_IMAGE_OFFSET,
@@ -118,14 +118,14 @@ class ts_calibrate(xbmcgui.WindowDialog):
     self.t.start()
 
   def onAction(self, action):
-    if action == ACTION_PREVIOUS_MENU or action == ACTION_BACKSPACE:
+    if action in [ACTION_PREVIOUS_MENU, ACTION_BACKSPACE]:
       self.retval = 0
       self.close()
 
 addon = xbmcaddon.Addon(id = 'service.touchscreen')
 finished = False
 
-while finished == False:
+while not finished:
   dialog = ts_calibrate()
   dialog.doModal()
 

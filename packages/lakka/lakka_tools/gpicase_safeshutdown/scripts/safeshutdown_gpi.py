@@ -17,7 +17,7 @@ with open('/etc/os-release', 'r') as data:
     content = data.read()
 device = list(filter(lambda x: x.find('LIBREELEC_DEVICE') == 0, content.splitlines()))[0][18:-1]
 
-powerPinPullUp = False if device == 'RPi4-GPICase2' else True
+powerPinPullUp = device != 'RPi4-GPICase2'
 
 #functions that handle button events
 def when_pressed():

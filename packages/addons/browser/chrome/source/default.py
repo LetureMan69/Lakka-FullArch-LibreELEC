@@ -120,16 +120,15 @@ try:
 except Exception:
   args = ''
 
-if args == 'widevine':
-  install_widevine()
-elif args == 'flash':
+if args == 'flash':
   install_flash()
-else:
-  if not isRunning('chrome'):
-    pauseXbmc()
-    startchrome(args)
-    while isRunning('chrome'):
-      time.sleep(1)
-    resumeXbmc()
+elif args == 'widevine':
+  install_widevine()
+elif not isRunning('chrome'):
+  pauseXbmc()
+  startchrome(args)
+  while isRunning('chrome'):
+    time.sleep(1)
+  resumeXbmc()
 
 del __addon__
